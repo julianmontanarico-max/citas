@@ -1,0 +1,20 @@
+{
+  "name": "Citas de Lei y Juli",
+  "short_name": "Citas",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFD9A0",
+  "theme_color": "#E8A93D",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
