@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.json"> <link rel="apple-touch-icon" href="icon-180.png">
 <title>Citas de Lei y Juli</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=Caveat:wght@500;600;700&display=swap');
@@ -524,6 +523,37 @@
     setTimeout(()=> toastEl.classList.remove('show'), 2200);
   }
 
+  /* ---- Notificaciones (solo mientras la página está abierta) ---- */
+  // Pide permiso apenas cargue la página, para poder avisar cuando
+  // Lei (o tú) agreguen una cita desde otro dispositivo.
+  if('Notification' in window && Notification.permission === 'default'){
+    // Se pide en la primera interacción del usuario, ya que varios
+    // navegadores bloquean el permiso si se pide antes de cualquier click.
+    const askPermissionOnce = () => {
+      Notification.requestPermission();
+      window.removeEventListener('click', askPermissionOnce);
+      window.removeEventListener('touchstart', askPermissionOnce);
+    };
+    window.addEventListener('click', askPermissionOnce);
+    window.addEventListener('touchstart', askPermissionOnce);
+  }
+
+  let knownIds = null; // null = todavía no sabemos qué había antes
+  let suppressNotifyUntil = 0; // evita notificarte a ti mismo justo al guardar
+
+  function notifyNewCita(cita){
+    const label = cita.title || 'Nueva cita';
+    showToast('✨ Nueva cita: ' + label);
+    if('Notification' in window && Notification.permission === 'granted'){
+      try{
+        new Notification('Nueva cita agregada 💛', {
+          body: label + (cita.date ? ' · ' + cita.date : ''),
+          icon: 'icon-192.png'
+        });
+      }catch(e){ /* algunos navegadores móviles no soportan new Notification() directo */ }
+    }
+  }
+
   /* ---- build a full sunflower field with three depth rows so it reaches the bottom edge ---- */
   function sunflowerSvg(cls, seedColor, petalColor, tilt){
     return `
@@ -574,6 +604,21 @@
   citasRef.on('value', (snapshot) => {
     const data = snapshot.val();
     citas = data ? Object.values(data) : [];
+
+    const currentIds = new Set(citas.map(c => c.id));
+    if(knownIds === null){
+      // Primera carga: solo guardamos el estado, sin notificar nada.
+      knownIds = currentIds;
+    } else {
+      const isSuppressed = Date.now() < suppressNotifyUntil;
+      citas.forEach(c => {
+        if(!knownIds.has(c.id) && !isSuppressed){
+          notifyNewCita(c);
+        }
+      });
+      knownIds = currentIds;
+    }
+
     render();
   }, (err) => {
     console.error(err);
@@ -587,6 +632,9 @@
 
   async function saveCitas(){
     try{
+      // Evita que te llegue una notificación de "nueva cita" por algo
+      // que tú mismo/a acabas de guardar (dura unos segundos).
+      suppressNotifyUntil = Date.now() + 4000;
       // Firebase guarda objetos por clave, así que convertimos el arreglo
       // en un objeto usando el id de cada cita como clave.
       const obj = {};
